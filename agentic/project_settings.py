@@ -176,7 +176,7 @@ DEFAULT_AGENT_SETTINGS: dict[str, Any] = {
         'msf_restart': ['exploitation', 'post_exploitation'],
         'web_search': ['informational', 'exploitation', 'post_exploitation'],
         'cve_intel': ['informational', 'exploitation', 'post_exploitation'],
-        'shodan': ['informational', 'exploitation'],
+        'shodan': ['informational', 'exploitation', 'post_exploitation'],
         'google_dork': ['informational'],
         'tradecraft_lookup': ['exploitation', 'post_exploitation'],
     },

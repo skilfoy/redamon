@@ -18,6 +18,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 _AGENTIC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _AGENTIC_DIR)
@@ -220,16 +221,14 @@ class TestDefensiveEdges(WorkspaceLayoutBase):
         self.assertNotIn("USER INBOX", out)
 
     def test_no_crash_when_listing_raises_oserror(self):
-        # chmod 000 the uploads dir - iterdir raises PermissionError.
+        # Force iterdir to raise OSError. We mock instead of chmod-000 because
+        # the agent container runs as root, where chmod doesn't restrict access.
         ud = self._project_dir("proj")
         (ud / "trapped.txt").write_bytes(b"v")
-        try:
-            os.chmod(ud, 0o000)
+        with patch.object(Path, "iterdir", side_effect=PermissionError("denied")):
             out = base.build_workspace_layout_block("proj")
-            self.assertIn("`notes/`", out)  # static parts still rendered
-            self.assertNotIn("USER INBOX", out)  # uploads silently dropped
-        finally:
-            os.chmod(ud, 0o755)
+        self.assertIn("`notes/`", out)  # static parts still rendered
+        self.assertNotIn("USER INBOX", out)  # uploads silently dropped
 
 
 if __name__ == "__main__":
