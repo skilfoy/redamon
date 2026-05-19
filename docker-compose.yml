@@ -155,6 +155,12 @@ services:
     depends_on:
       gvm-postgres-init:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -h /var/run/postgresql"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
 
   gvmd:
     image: registry.community.greenbone.net/community/gvmd:stable
@@ -172,7 +178,7 @@ services:
       - gvm_psql_socket:/var/run/postgresql
     depends_on:
       gvm-postgres:
-        condition: service_started
+        condition: service_healthy
       gvm-scap-data:
         condition: service_completed_successfully
       gvm-cert-bund-data:
