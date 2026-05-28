@@ -959,6 +959,20 @@ def run_domain_recon(target: str, anonymous: bool = False, bruteforce: bool = Fa
     if target_info is None:
         target_info = parse_target(target, SUBDOMAIN_LIST)
 
+    # Auto-promote to FILTERED MODE when discovery is disabled and only the root
+    # domain is in scope. Without this, the FULL DISCOVERY branch runs but the
+    # discovery step is skipped, leaving subdomains/dns empty and the rest of
+    # the pipeline with no targets to chew on (silent failure).
+    if (
+        not target_info["filtered_mode"]
+        and target_info.get("include_root_domain")
+        and not _settings.get('SUBDOMAIN_DISCOVERY_ENABLED', True)
+    ):
+        target_info["filtered_mode"] = True
+        if target_info["root_domain"] not in target_info["full_subdomains"]:
+            target_info["full_subdomains"].append(target_info["root_domain"])
+        print("[*][Pipeline] Discovery disabled + root-domain-only → forcing FILTERED MODE")
+
     filtered_mode = target_info["filtered_mode"]
     root_domain = target_info["root_domain"]
     full_subdomains = target_info["full_subdomains"]

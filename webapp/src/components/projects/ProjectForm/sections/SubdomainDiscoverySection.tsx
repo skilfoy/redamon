@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { ChevronDown, Play, Search } from 'lucide-react'
-import { Toggle, WikiInfoButton } from '@/components/ui'
+import { Toggle, WikiInfoButton, useAlertModal } from '@/components/ui'
 import type { Project } from '@prisma/client'
 import styles from '../ProjectForm.module.css'
 import { NodeInfoTooltip } from '../NodeInfoTooltip'
@@ -18,6 +18,36 @@ interface SubdomainDiscoverySectionProps {
 
 export function SubdomainDiscoverySection({ data, updateField, onRun }: SubdomainDiscoverySectionProps) {
   const [isOpen, setIsOpen] = useState(true)
+  const { confirm } = useAlertModal()
+
+  // When explicit Subdomain Prefixes are set in Target Configuration, the
+  // backend runs in FILTERED mode and skips every discovery source. Lock the
+  // master toggle OFF here so the UI matches actual pipeline behavior.
+  const hasExplicitPrefixes = (data.subdomainList ?? []).some(
+    (s) => s !== '.' && s.replace(/\.$/, '').length > 0
+  )
+  const lockReason = hasExplicitPrefixes
+    ? 'Subdomain Discovery is disabled because explicit Subdomain Prefixes are set in Target Configuration. The pipeline runs in FILTERED mode and only resolves the prefixes you listed. Clear the prefixes to re-enable discovery.'
+    : ''
+
+  const includesRootDomain = (data.subdomainList ?? []).includes('.')
+
+  // Intercept the master toggle. When switching OFF with no prefixes set and
+  // "Include Root Domain" not already ON, warn the user that the pipeline
+  // would have zero targets and that Include Root Domain will be auto-enabled
+  // (TargetSection's forceIncludeRootDomain effect handles the actual flip).
+  const handleMasterToggle = async (checked: boolean) => {
+    if (!checked && !hasExplicitPrefixes && !includesRootDomain) {
+      const ok = await confirm(
+        'You are turning off Subdomain Discovery while no Subdomain Prefixes are set. ' +
+        'To keep the pipeline runnable, "Include Root Domain" will be automatically ' +
+        'enabled and locked ON — the root domain becomes the only scan target. Continue?',
+        'Disable Subdomain Discovery?'
+      )
+      if (!ok) return
+    }
+    updateField('subdomainDiscoveryEnabled', checked)
+  }
 
   return (
     <div className={styles.section}>
@@ -51,10 +81,15 @@ export function SubdomainDiscoverySection({ data, updateField, onRun }: Subdomai
               <Play size={10} /> Run partial recon
             </button>
           )}
-          <div onClick={(e) => e.stopPropagation()}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            title={lockReason || undefined}
+            style={hasExplicitPrefixes ? { cursor: 'not-allowed' } : undefined}
+          >
             <Toggle
               checked={data.subdomainDiscoveryEnabled}
-              onChange={(checked) => updateField('subdomainDiscoveryEnabled', checked)}
+              onChange={handleMasterToggle}
+              disabled={hasExplicitPrefixes}
             />
           </div>
           <ChevronDown
